@@ -55,6 +55,12 @@ class GpsMapAppState extends State<GpsMapApp> {
 
     // 화면 그리기
     setState(() {});
+
+    const locationSettings = LocationSettings();
+    Geolocator.getPositionStream(locationSettings: locationSettings)
+    .listen((Position position) {
+      _moveCamera(position);
+    });
   }
 
   @override
@@ -70,23 +76,24 @@ class GpsMapAppState extends State<GpsMapApp> {
                 _controller.complete(controller);
               },
             ),
-      floatingActionButton: FloatingActionButton.extended(
+
+      /*floatingActionButton: FloatingActionButton.extended(
         onPressed: _goToTheCurrent,
         label: const Text('현위치'),
         icon: const Icon(Icons.directions_boat),
-      ),
+      ),*/
     );
   }
 
-  Future<void> _goToTheCurrent() async {
+  Future<void> _moveCamera(Position position) async {
     final GoogleMapController controller = await _controller.future;
-    final position = await Geolocator.getCurrentPosition();
+    // 현재 위치가 아닌 position 기반으로 위치 변경. final position = await Geolocator.getCurrentPosition();
     final cameraPosition = CameraPosition(
       target: LatLng(position.latitude, position.longitude),
-      zoom: 15,
+      zoom: 17,
     );
-    await controller
-        .animateCamera(CameraUpdate.newCameraPosition(cameraPosition));
+    // await controller 아니었어?
+    controller.animateCamera(CameraUpdate.newCameraPosition(cameraPosition));
   }
 
   Future<Position> _determinePosition() async {
