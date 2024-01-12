@@ -1,3 +1,5 @@
+// ignore_for_file: unused_local_variable
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -32,10 +34,13 @@ class GpsMapApp extends StatefulWidget {
 }
 
 class GpsMapAppState extends State<GpsMapApp> {
-  final Completer<GoogleMapController> _controller =
-      Completer<GoogleMapController>();
+  final Completer<GoogleMapController> _controller = Completer();
 
   CameraPosition? _initialCameraPosition;
+
+  int _polylineIdCounter = 0;
+  final Set<Polyline> _polylines = {};
+  LatLng? _prevPosition;
 
   @override
   void initState() {
@@ -58,8 +63,24 @@ class GpsMapAppState extends State<GpsMapApp> {
 
     const locationSettings = LocationSettings();
     Geolocator.getPositionStream(locationSettings: locationSettings)
-    .listen((Position position) {
-      _moveCamera(position);
+        .listen((Position position) {
+          _polylineIdCounter++;
+          final polylineId = PolylineId('$_polylineIdCounter');
+          final polyline = Polyline(
+            polylineId: polylineId,
+            color: Colors.red,
+            width: 3,
+            points: [
+              _prevPosition ?? _initialCameraPosition!.target,
+              LatLng(position.latitude, position.longitude),
+            ],
+          );
+          
+          setState(() {
+            _polylines.add(polyline);
+            _prevPosition = LatLng(position.latitude, position.longitude);
+          });
+          _moveCamera(position);
     });
   }
 
@@ -75,13 +96,8 @@ class GpsMapAppState extends State<GpsMapApp> {
               onMapCreated: (GoogleMapController controller) {
                 _controller.complete(controller);
               },
+              polylines: _polylines,
             ),
-
-      /*floatingActionButton: FloatingActionButton.extended(
-        onPressed: _goToTheCurrent,
-        label: const Text('현위치'),
-        icon: const Icon(Icons.directions_boat),
-      ),*/
     );
   }
 
@@ -92,7 +108,6 @@ class GpsMapAppState extends State<GpsMapApp> {
       target: LatLng(position.latitude, position.longitude),
       zoom: 17,
     );
-    // await controller 아니었어?
     controller.animateCamera(CameraUpdate.newCameraPosition(cameraPosition));
   }
 
@@ -102,6 +117,9 @@ class GpsMapAppState extends State<GpsMapApp> {
 
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
+      // Location services are not enabled don't continue
+      // accessing the position and request users of the
+      // App to enable the location services.
       return Future.error('Location services are disabled.');
     }
 
@@ -109,15 +127,23 @@ class GpsMapAppState extends State<GpsMapApp> {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
+        // Permissions are denied, next time you could try
+        // requesting permissions again (this is also where
+        // Android's shouldShowRequestPermissionRationale
+        // returned true. According to Android guidelines
+        // your App should show an explanatory UI now.
         return Future.error('Location permissions are denied');
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
+      // Permissions are denied forever, handle appropriately.
       return Future.error(
           'Location permissions are permanently denied, we cannot request permissions.');
     }
 
+    // When we reach here, permissions are granted and we can
+    // continue accessing the position of the device.
     return await Geolocator.getCurrentPosition();
   }
 }
